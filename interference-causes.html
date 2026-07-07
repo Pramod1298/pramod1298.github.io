@@ -1,0 +1,77 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="dark light"><title>The EID Wireless Masterclass</title><style>/* Alignment */
+mtable.right-align mtd,
+mtable mtd.right-align,
+mtable.left-align mtd.right-align,
+mtable.aligned mtd:nth-child(odd) {
+  justify-items: end;
+  text-align: right;
+}
+mtable.cases mtd,
+mtable.left-align mtd,
+mtable mtd.left-align,
+mtable.aligned mtd:nth-child(even),
+math:is(:not([display])) > mtable.multiline-equation mtd {
+  justify-items: start;
+  text-align: left;
+}
+mtable.cases mtd,
+mtable.aligned mtd,
+mtable mtd.flushed,
+mtable mtd.left-flush {
+  padding-left: 0;
+}
+mtable.cases mtd,
+mtable.aligned mtd,
+mtable mtd.flushed,
+mtable mtd.right-flush {
+  padding-right: 0;
+}
+
+/* Tables */
+mtable {
+  math-style: inherit;
+}
+mtd {
+  math-depth: auto-add;
+  math-style: compact;
+  math-shift: compact;
+}
+
+/* Equations */
+mtable.multiline-equation mtd {
+  math-depth: inherit;
+  math-style: inherit;
+  math-shift: inherit;
+  padding: 0;
+}
+math > mtable.multiline-equation mtr:not(:last-child) mtd {
+  padding-bottom: 0.5em;
+}
+
+/* Fractions */
+mfrac {
+  padding-inline: 0;
+  margin-inline: 0.1em;
+}
+
+/* Accents */
+mover[accent="true" i] > :first-child {
+  font-feature-settings: "dtls";
+}
+mover.dotted[accent="true" i] > :first-child {
+  font-feature-settings: "dtls" 0;
+}
+
+/* Other rules for scriptlevel, displaystyle and math-shift */
+munder > :nth-child(2),
+munderover > :nth-child(2) {
+  math-shift: compact
+}
+munder[accentunder="true" i] > :not(:first-child),
+mover[accent="true" i] > :not(:first-child) {
+  math-depth: inherit;
+  math-style: inherit;
+  math-shift: inherit;
+}</style>  <script type="module" crossorigin src="/assets/components-QNVd9XtE.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/components-Z7REEbNT.css">
+</head><body><h2 id="loc-1">3 - Causes of Interference</h2><p>We need precise control over the entity age and ID for this to work, so sources of interference are generally unexpected entity spawns that mess up the ID.</p><h3 id="loc-2">3.1 - Other Entities</h3><p>Recall that <strong>any</strong> entity spawning will increment the ID counter, and the full list of entities is surprising. An exhaustive list is available at <a href="https://minecraft.wiki/w/Entity#Types_of_entities">The Minecraft Wiki</a>.</p><p>In general, the solution is to spawn our item entities at nearly the same time, so there is no chance for other entities to spawn in-between. For example, by spawning all items with droppers in the same game tick, all the items are created in the same tick phase, so player inputs and world events cannot affect it. See <a href="interference-fixes.html#timing">Section 4</a> for details.</p><h3 id="singleplayer">3.2 - Singleplayer (before 26.2)</h3><p>In singleplayer worlds, there are separate execution threads for the renderer and game world. The game world (“server thread”) contains the item entities we care about for the purposes of EID Wireless, as these are the entities we can detect with redstone. However, the renderer (“client thread”) <strong>also</strong> tracks some entities.</p><p>In versions before 26.2, there was a bug that caused the client thread and server thread to use the <strong>same</strong> global ID counter. Therefore every entity might increment the counter twice: once when it spawns in the server, and once when the client begins to track it. Because this depends on the position and orientation of the player, and also on the unpredictable scheduling of the two execution threads, it is impossible to truly compensate for these effects.</p><p>The solution is to either use a dedicated minecraft server, so that the client and servers run in separate processes, or install a mod which patches the game to use a separate counter for the client.</p><section class="callout todo"><h4 id="loc-3">[TODO] Singleplayer patch links:</h4><p>Grab links for these mods and figure out exactly which versions they’re good for.</p></section><h3 id="paper">3.3 - Paper Servers</h3><section class="callout todo"><h4 id="loc-4">[TODO] Paper compatibility list:</h4><p>Figure out which versions of Paper broke the thing.</p></section><p>Most recent versions of Paper server are compatible with EID Wireless. However, there are old versions of Spigot which include a <strong>different</strong> stationary item optimization which corrupts this. A few versions of Paper erroneously included this old optimization (on top of the mod 4 optimization) which breaks EID Wireless.</p><section class="callout todo"><h4 id="loc-5">[TODO] Broken Paper/Spigot code:</h4><p>Show the patch with the busted optimization.</p></section><h3 id="loc-6">3.4 - Unloaded Chunks</h3><p>When a chunk unloads and reloads, all entities contained within it are destroyed and recreated with new entity IDs. Therefore any information encoded in the ID group offsets is destroyed.</p><section class="callout tip"><h4>Tip:</h4><p>When a chunk containing an EID Wireless receiver is reloaded, every in-progress transmission <strong>MUST</strong> be discarded.</p></section><p>The best thing to do is to use a reload detector and lock the receiver output for one full cycle after a reload.</p><section class="callout todo"><h4 id="loc-7">[TODO] Reload detector designs:</h4><p>frost walker, sculk sensor, ???</p></section><h3 id="loc-8">3.5 - Lazy Chunks</h3><p>Entities in lazy chunks do not age or move, and their IDs are preserved. However, the redstone circuitry will continue to function. If a chunk becomes lazy while a transmission is being processed, the detection circuits will not observe the right drop delays and so the transmission is corrupted.</p><section class="callout tip"><h4>Tip:</h4><p>When a chunk containing an EID Wireless receiver becomes lazy, every in-progress transmission <strong>MUST</strong> be discarded.</p></section><p>Further, depending on the receiver design, there is a small chance the items become clipped into blocks. When the chunk becomes entity-processing again, the clipped items will fly out of the machine instead of being recycled.</p><p>The best thing to do is to use a chunkloader to prevent the receiver ever being lazy-loaded. If chunkloaders cannot be used, a lazy-chunk detector can be used to lock the outputs while the chunk is lazy-loaded and for one full cycle after it becomes entity-processing.</p><section class="callout todo"><h4 id="loc-9">[TODO] Lazy chunk detector designs:</h4><p>falling entity, ???</p></section><section class="callout todo"><h4 id="loc-10">[TODO] think about lazy conditions by cases:</h4></section><section class="callout todo"><h4 id="loc-11">[TODO] wip comment on discord:</h4><p>The problem with unloaded chunks is that when the chunk reloads, all items are recreated with new entity ids and the transmission information is destroyed. There is no hope for recovery, so the only solution is to discard the first cycle.</p><p>The problem with lazy chunks is that it’s impossible (or at least very hard) to synchronize entity movement. The redstone, droppers, and hoppers all continue to tick in lazy chunks. If you have multiple items in each slice, then every cycle in lazy chunks spaws an item. When you the chunk ticks again, the hopper can onl pick up one of the items, and the rest sit there. You can’t control when in the cycle the chunk ticks again either, so it may tick with the trapdoor already open, or just about to close.</p><p>Quite often, things will be desynchronized such that the trapdoor closes clipped into an item while the hopper is on cooldown. In that case, the collision flings the item out of the measurement chamber. If you only have one item, then the hopper can never be on cooldown while the item would collide with the trapdoor, so it always gets recycled and can never be flung out.</p><p>However because you can’t control the timings, you can’t guarantee the mod 4 optimization was actually applied or if the items are just falling through the already-open trapdoor. So you still have to discard the message.</p><p>If you have a lazy chunk detector, you can stop the clock while in lazy chunks, then simply resume the clock on the next cycle after ticking again.</p><p>But since you also need to lock the output for reloaded chunks, it’s just easier to do that every time.</p></section></body></html>
